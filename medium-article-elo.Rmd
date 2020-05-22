@@ -1,0 +1,357 @@
+---
+title: "ipl_medium_elo"
+author: "Sathvik"
+date: "22/05/2020"
+output: html_document
+---
+
+```{r}
+#Libraries and cleaning scripts
+library(tidyverse)
+library(elo)
+
+#Setting the theme
+theme_set(theme_clean())
+
+#Reading files
+deliveries <- read.csv("deliveries.csv")
+matches <- read.csv("matches.csv")
+
+#Cleaning Pune (Warriors/ Supergiants), Hyderabad (Sunrisers and Deccan Chargers) and Delhi (Capitals/ Daredevils) names
+matches_processed <- matches %>%
+  mutate(winner = str_replace(winner, "Pune Warriors","Pune warriors/ SuperGiants"),
+         winner = str_replace(winner, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         winner = str_replace(winner, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(toss_winner = str_replace(toss_winner, "Pune Warriors","Pune warriors/ SuperGiants"),
+         toss_winner = str_replace(toss_winner, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         toss_winner = str_replace(toss_winner, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(team1 = str_replace(team1, "Pune Warriors","Pune warriors/ SuperGiants"),
+         team1 = str_replace(team1, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         team1 = str_replace(team1, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(team2 = str_replace(team2, "Pune Warriors","Pune warriors/ SuperGiants"),
+         team2 = str_replace(team2, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         team2 = str_replace(team2, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(winner = str_replace(winner, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         winner = str_replace(winner, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(toss_winner = str_replace(toss_winner, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         toss_winner = str_replace(toss_winner, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(team1 = str_replace(team1, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         team1 = str_replace(team1, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(team2 = str_replace(team2, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         team2 = str_replace(team2, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(winner = str_replace(winner, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         winner = str_replace(winner, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers")) %>% 
+  mutate(toss_winner = str_replace(toss_winner, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         toss_winner = str_replace(toss_winner, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers")) %>% 
+  mutate(team1 = str_replace(team1, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         team1 = str_replace(team1, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers")) %>% 
+  mutate(team2 = str_replace(team2, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         team2 = str_replace(team2, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers"))
+  
+  deliveries_processed <- deliveries %>%
+  mutate(batting_team = str_replace(batting_team, "Pune Warriors","Pune warriors/ SuperGiants"),
+         batting_team = str_replace(batting_team, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         batting_team = str_replace(batting_team, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(bowling_team = str_replace(bowling_team, "Pune Warriors","Pune warriors/ SuperGiants"),
+         bowling_team = str_replace(bowling_team, "Rising Pune Supergiants","Pune warriors/ SuperGiants"),
+         bowling_team = str_replace(bowling_team, "Rising Pune Supergiant","Pune warriors/ SuperGiants")) %>%
+  mutate(batting_team = str_replace(batting_team, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         batting_team = str_replace(batting_team, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(bowling_team = str_replace(bowling_team, "Delhi Daredevils","Delhi-Capitals/Daredevils"),
+         bowling_team = str_replace(bowling_team, "Delhi Capitals","Delhi-Capitals/Daredevils")) %>% 
+  mutate(batting_team = str_replace(batting_team, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         batting_team = str_replace(batting_team, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers")) %>% 
+  mutate(bowling_team = str_replace(bowling_team, "Deccan Chargers","Hyd - DeccanChargers/ Sunrisers"),
+         bowling_team = str_replace(bowling_team, "Sunrisers Hyderabad","Hyd - DeccanChargers/ Sunrisers"))
+
+  #Setting up the color palette
+  
+  colors <- c("Kochi Tuskers Kerala" = "#7f3fa2", 
+            "Gujarat Lions" = "#c37727",  
+            "Pune warriors/ SuperGiants" = "#f2b668", 
+            "Rajasthan Royals" = "#014da3",
+            "Delhi-Capitals/Daredevils"= "#1f2f77", 
+            "Kings XI Punjab" = "#ee1922", 
+            "Royal Challengers Bangalore"= "#d21d2e",
+            "Hyd - DeccanChargers/ Sunrisers" =  "#f7a721",
+            "Kolkata Knight Riders" = "#46007c",
+            "Chennai Super Kings" = "#f7dc2b", 
+            "Mumbai Indians" ="#053678"
+  
+)  
+
+```
+
+
+Ranking the Indian Premier League (IPL) teams using the ELO rating system
+
+The Indian Premier League is a popular cricket tournament which was founded and is run by the Indian cricket governing body BCCI. It is touted to be the most attended cricket league in the world with its brand value estimated to be close to USD 6 bn in 2019 (In contrast, the 27 year old English Premier League's valuation is estimated at $6.7 bn).
+
+There have been twelve seasons of IPL so far from 2008 to 2019. The 2020 games have been postponed indefinitely as on the date of writing this article on account of COVID-19.  Typically, these games run between March and May of every year and uses a shortened form of the game called Twenty20. The league comprises of eight to ten teams representing different cities in India.
+
+For this analysis, I am using an incredible dataset that I found here (https://www.kaggle.com/manasgarg/ipl) on kaggle submitted by Manas. The link contains two data files - one for a summary of matches and the other comprising of ball-by-ball observations. The focus of our article will be on the 'matches' dataset. I am using R and packages such as "tidyverse" and "elo" for this analysis. The snippet of the code is given at the end of this article.
+
+I recently came across the concept of the ELO rating system through a screencast by Andrew Couch who was using it to rank UFC players. For those who are interested, the link is here (https://www.youtube.com/watch?v=5HxUaXP9Q58&t=2078s). As I learnt more about the ELO ranking system, I found it a conceptually strong framework to rate and rank teams and I thought about using it to analyse IPL teams and see where it leads me.
+
+An ELO rating system was created by Arpad Elo to calculate relative skill levels of players in zero-sum games. Though one can argue that cricket may not exactly be classified as a zero-sum game, this particular system has also been used in rating other games such as american football, table-tennis, major league baseball etc. Hence, my interest in using this for IPL. To find out how an ELO rating system works, I will paraphrase this sentence from Wikipedia:
+"A player's Elo rating is represented by a number which may change depending on the outcome of rated games played. After every game, the winning player takes points from the losing one. The difference between the ratings of the winner and loser determines the total number of points gained or lost after a game. If the high-rated player wins, then only a few rating points will be taken from the low-rated player. However, if the lower-rated player scores an upset win, many rating points will be transferred. The lower-rated player will also gain a few points from the higher rated player in the event of a draw. This means that this rating system is self-correcting. Players whose ratings are too low or too high should, in the long run, do better or worse correspondingly than the rating system predicts and thus gain or lose rating points until the ratings reflect their true playing strength."
+
+In summary, what this means is that the winner will gain a few points after each game and the loser will lose an equivalent points. However, if a weaker player or team that has generally lost in the past and causes an "upset" win, then the players/ teams will gain and lose a higher proportion of points for that match. Therefore, it makes it harder for top teams to keep maintaining a lead, while it is easier for weaker players/ teams to gain on each win.
+
+Before going into the ELO based rating, it would be good to know how teams would be ranked through traditional (basic) analytical methods. If one were to use total games won in all the twelve seasons, we would see Mumbai Indians, Chennai Super Kings and Kolkata Knight Riders ranked as 1, 2 and 3 respectively. Note that I have combined teams who have had different owners and names over the last twelve seasons into one. So Delhi Capitals and Delhi Daredevils are combined. So is Deccan Chargers and Sunrisers Hyderabad as also Pune Warriors and Rising Pune Super Giants. A simple ranking order is as given below:
+
+
+```{r}
+# Ranking teams based on most matches won
+matches_processed %>%
+  filter(result != "no result") %>% 
+  count(winner, sort = TRUE) %>% 
+  mutate(winner = fct_reorder(winner, n)) %>% 
+  ggplot(aes(x = winner, y = n, fill = winner))+
+  geom_col()+
+  coord_flip()+
+   scale_fill_manual(values = colors)+
+  labs(title = "Most IPL matches won",
+       subtitle = "Season 1 (2008) to Season 12 (2019)",
+       x = "",
+       y = "Number of matches won",
+       caption = "viz by @sathviknishanth | \nData Source: https://www.kaggle.com/nowke9/ipldata/download")+
+  theme(legend.position = "none")
+
+```
+
+How would this compare to the success rate? i.e. if we compute the percentage of games won against games played, would the ranking look any different? Let's see:
+
+```{r}
+#Calculating percentages of games won
+
+played_no <- matches_processed %>%
+  select(team1, team2) %>% 
+  mutate(value = 1) %>% 
+  pivot_longer(cols = c(team1, team2), names_to = "Team_no", values_to = "team_name") %>% 
+  count(team_name)
+
+
+matches_processed %>% 
+  group_by(winner) %>% 
+  summarise(games_won = n()) %>% 
+  inner_join(played_no, by = c(winner = "team_name")) %>% 
+  mutate(percent_won = games_won/n) %>% 
+  arrange(desc(percent_won)) %>% 
+  mutate(winner = fct_reorder(winner, percent_won)) %>% 
+  ggplot(aes(x = winner, y = percent_won, fill = winner))+
+  geom_col()+
+  coord_flip()+
+   scale_fill_manual(values = colors)+
+  scale_y_continuous(labels = scales::percent_format())+
+  labs(title = "Percentage of IPL matches won",
+       subtitle = "Season 1 (2008) to Season 12 (2019)",
+       x = "",
+       y = "Percentage of matches won",
+       caption = "viz by @sathviknishanth | \nData Source: https://www.kaggle.com/nowke9/ipldata/download")+
+  theme(legend.position = "none")
+
+```
+
+This does look different, Chennai pips Mumbai Indians now to be the first. More interestingly, Rajasthan Royals shoots up from eighth place to the fourth. Two simple analyses throw out two different results. If you were to bet on a team (gambling on sport is still illegal in India - so this is a hypothetical situation), on whom would you really bet?
+
+Let's see how the elo rating system ranks the teams. I am doing this using the "elo" package in R created by Ethan Heinzen. The package does the work very simply through a simple function called elo.run. You can find a lot of examples of using this and other functions here. ("https://cran.r-project.org/web/packages/elo/vignettes/elo.html). So I loaded up the ELO package and used primarily three columns - team1, team2 and winner. For the elo function to run, it needs a "results" argument, that is either a 1 (if teamA wins), 0 (if teamB wins) or 0.5 (if there is no result or a tie). Another important argument to be provided is the "k" factor which determines how many points get added and removed from each team for each win or loss. If you keep the 'k' too high, you may end up rewarding/ penalising too much and each game could have a significant influence on the ranking. If you keep the 'k' too low, each win or loss could have a very insignificant effect. For the purpose of this analysis I retained it at an experimental k=20. This can be adjusted to determine the sensitivity levels later if required.
+
+```{r}
+#selecting the data to apply elo and converting results into a 1, 0 and 0.5 value
+
+elo_data_ipl <- matches_processed %>% 
+  select(id, date, team1, team2, winner) %>% 
+  arrange(id) %>%
+  mutate(result = if_else(as.character(winner) == as.character(team1), 1, 
+                          if_else(as.character(winner) == as.character(team2), 0, 0.5)))
+
+elo_run_ipl <-elo_data_ipl %>% 
+  elo.run(result ~ team1 + team2, k = 20, data = .)
+
+rank_k20 <- rank.teams(elo_run_ipl) %>% 
+  tidy() %>%
+  rename(rank = x) %>% 
+  arrange(rank) %>% 
+  mutate(kfactor = "k_20")
+```
+
+After the analysis was run, elo.rank function provides the final ranking of the teams, which lists as under:
+
+ Team                               rank   
+ 1 Chennai Super Kings                 1
+ 2 Mumbai Indians                      2
+ 3 Kolkata Knight Riders               3
+ 4 Hyd - DeccanChargers/ Sunrisers     4
+ 5 Delhi-Capitals/Daredevils           5
+ 6 Royal Challengers Bangalore         6
+ 7 Rajasthan Royals                    7
+ 8 Kochi Tuskers Kerala                8
+ 9 Gujarat Lions                       9
+10 Kings XI Punjab                    10
+11 Pune warriors/ SuperGiants         11
+
+This ranking is very similar to the analysis we did using the win percentage above, except that Rajasthan Royals moves back to 7th place instead of 4th. This result has a good intuitive edge, particularly when you see the performance of Rajasthan Royals. They were barred from playing for a few years which meant that they had lesser number of matches under their belt. Moreover, their performance in recent editions of IPL was much worse than earlier seasons. They infact had won the first edition of IPL back in 2008!
+
+So if one were to compare the rankings through the three methods, this is how the rankings compare:
+
+The data that gets generated using the above function also gives additional paramaters, such as elo scores of each team after each match and the amount of points that have got added or removed from the elo scores. This helps us to do additional analysis on the performance of the teams. For example:
+
+1. Findings out the trend of performance over time through the movement of elo scores:
+Plotting elo scores over the mateches give an insight into how the team has moved. If there were consequtive periods of sustained wins or losses and what important turning points led to them being in the position they were in. Lets look at three teams and their end-of-season elo scores.
+
+```{r}
+
+#Elo scores
+
+elo_df <- elo_run_ipl %>% 
+  as.data.frame() %>% 
+  cbind(matches_processed %>% select(id, date, season))
+
+elo_df_tidied <- elo_df %>%
+  select(season, team.A, team.B, elo.A, elo.B, id, date) %>% 
+  pivot_longer(cols = c(team.A, team.B), names_to = "team", values_to = "name") %>% 
+  pivot_longer(cols = c(elo.A, elo.B), names_to = "elo_name", values_to = "elo_value") %>% 
+  mutate(team = str_remove(team, "team."),
+         elo_name = str_remove(elo_name, "elo.")) %>% 
+  filter(team == elo_name) %>% 
+  select(-team, -elo_name)
+
+elo_df_tidied %>%
+  group_by(season, name) %>% 
+  summarise(score = last(elo_value)) %>% 
+  filter(name %in% c("Chennai Super Kings", "Royal Challengers Bangalore", "Kolkata Knight Riders")) %>% 
+  ggplot(aes(x = season, y = score, color = name, group = name))+
+  geom_point()+
+  geom_line()+
+  geom_text(data = elo_df_tidied %>%
+              filter(season == 2019, 
+                     name %in% c("Chennai Super Kings", "Royal Challengers Bangalore", "Kolkata Knight Riders"))%>% 
+              group_by(season, name) %>%
+              summarise(score = last(elo_value))
+            ,aes(label = name), hjust = "left")+
+  scale_color_manual(values = colors)+
+  scale_x_continuous(breaks = c(2008, 2010, 2012,2014,2016,2018,2020))+
+  expand_limits(x = c(2007, 2022))+
+  labs(title = "ELO Scores at the end of each season",
+       y = "ELO Scores",
+       x = "Season",
+       caption = "viz by @sathviknishanth | \nData Source: https://www.kaggle.com/nowke9/ipldata/download")+
+  theme(legend.position = "none")
+
+
+```
+
+Note that the y-axis does not start at "0" which is a best practice. However, I had truncated the y-axis to focus more on the differential between the lines of teams vis-a-vis the individual lines.
+
+If we were to story Royal Challenger's performance, we can surmise the following conclusions:
+a. A poor start in 2008
+b. Good show between 2009 to 2016
+c. Sharp drop in performance in 2017 which got slightly improved in 2018
+A comparison to Chennai will show that they have generally been consistently moving ahead year on year.
+
+2. Elo scores also help to arrive at a probability of winning. There is a specific function which determines  the current probability of a win between two teams. In our analysis, this is how the teams ended their 2019 season:
+ name                            elo_score
+1 Chennai Super Kings                 1608.
+2 Delhi-Capitals/Daredevils           1436.
+3 Hyd - DeccanChargers/ Sunrisers     1552.
+4 Kings XI Punjab                     1439.
+5 Kolkata Knight Riders               1549.
+6 Mumbai Indians                      1532.
+7 Rajasthan Royals                    1513.
+8 Royal Challengers Bangalore         1513.
+
+Using this elo score and using the function elo.prob, one can compute the probability of the first team winning. For example, the elo.prob for Kings XI Punjab (elo score of 1439) and Mumbai Indians (elo score of 1532) is 0.36. i.e. Kings XI Punjab has a 36% chance of winning. One can then easily look at the above data and say that Rajasthan Royals or Royal Challengers, its anyone's game. Likewise, according to this analysis Sunrisers Hyderabad has a 52% chance of winning against Mumbai Indians. Bear in mind, that as per the ranking analysis listed earlier, Mumbai was ranked higher than Sunrisers! I need to understand what this dichotomy. Probably because ranking also considers other factors. 
+
+3. Now, all the above analysis, is dependent on the 'k' factor which determines the extent of penalty or reward. Playing with the 'k' factor allows us to see how some teams can unexpectedly jump the ranks. So for example, here is the ranking at different 'k' levels.
+
+```{r}
+#Computing at different k factors
+
+elo_run_ipl_k10 <-elo_data_ipl %>% 
+  elo.run(result ~ team1 + team2, k = 10, data = .)
+
+rank_k10 <- rank.teams(elo_run_ipl_k10) %>% 
+  tidy() %>%
+  rename(rank = x) %>%
+  mutate(kfactor = "k_10") %>% 
+  arrange(rank)
+
+elo_run_ipl_k30 <-elo_data_ipl %>% 
+  elo.run(result ~ team1 + team2, k = 30, data = .)
+
+rank_k30 <- rank.teams(elo_run_ipl_k30) %>% 
+  tidy() %>%
+  rename(rank = x) %>%
+  mutate(kfactor = "k_30") %>% 
+  arrange(rank)
+
+elo_run_ipl_k40 <-elo_data_ipl %>% 
+  elo.run(result ~ team1 + team2, k = 40, data = .)
+
+rank_k40 <- rank.teams(elo_run_ipl_k40) %>% 
+  tidy() %>%
+  rename(rank = x) %>%
+  mutate(kfactor = "k_40") %>% 
+  arrange(rank)
+
+rbind(rank_k20, rank_k10, rank_k30, rank_k40) %>% 
+  pivot_wider(names_from = kfactor, values_from = rank)
+
+
+
+```
+
+
+  names                            k_20  k_10  k_30  k_40
+   <chr>                           <int> <int> <int> <int>
+ 1 Chennai Super Kings                 1     1     2     2
+ 2 Mumbai Indians                      2     2     1     1
+ 3 Kolkata Knight Riders               3     3     4     5
+ 4 Hyd - DeccanChargers/ Sunrisers     4     4     6     7
+ 5 Delhi-Capitals/Daredevils           5     9     3     3
+ 6 Royal Challengers Bangalore         6     6     5     4
+ 7 Rajasthan Royals                    7     5     7     6
+ 8 Kochi Tuskers Kerala                8     7     8     9
+ 9 Gujarat Lions                       9     8     9     8
+10 Kings XI Punjab                    10    10    10    10
+11 Pune warriors/ SuperGiants         11    11    11    11
+
+The interesting points to note here is when we look at Delhi Capitals with ranks of 5, 9, 3 and 3. A further analysis of this may depict why.
+
+```{r}
+
+elo_df_k30 <- elo_run_ipl_k30 %>% 
+  as.data.frame() %>% 
+  cbind(matches_processed %>% select(id, date, season)) %>% 
+  select(season, team.A, team.B, elo.A, elo.B, id, date) %>% 
+  pivot_longer(cols = c(team.A, team.B), names_to = "team", values_to = "name") %>% 
+  pivot_longer(cols = c(elo.A, elo.B), names_to = "elo_name", values_to = "elo_value") %>% 
+  mutate(team = str_remove(team, "team."),
+         elo_name = str_remove(elo_name, "elo.")) %>% 
+  filter(team == elo_name) %>% 
+  select(-team, -elo_name)
+
+
+elo_df_k30 %>% 
+  filter(name == "Delhi-Capitals/Daredevils") %>% 
+  mutate(number = row_number()) %>% 
+  ggplot(aes(x = number, y = elo_value))+
+  geom_line()+
+  labs(title = "Delhi Capitals - Movement of elo scores over time",
+       x = "Games Played (ID of games)",
+       y = "Elo Score",
+       caption = "viz by @sathviknishanth | \nData Source: https://www.kaggle.com/nowke9/ipldata/download")
+
+
+```
+
+If we look at the trend line of how the elo scores have moved for Delhi Capitals, we can see that somewhere during 2012-2017 there was a sharp fall in their performance, which was recovered off late. We know from the conceptual understanding of elo, the penalty factor or the reward factor favours low performing teams winning. A quick analysis below shows that Delhi has won 48% of their matches after 2016 as compared to seasons before that. However, I do not know if recent streak of good performance should enable such a high jump in ranking.
+
+So, overall, as a conclusion, the elo system does look like a promising method of analyzing relative rankings of teams. However, the cautionary tale here is that the k-values definitely need to be carefully derived such that they do not influence the rankings too significantly!
+
+
+
+
+
+
